@@ -289,7 +289,6 @@ run_model_estimation <- function(file_path) {
   return(invisible(results))
 }
 
-
 # ============================================================
 # Main
 # ============================================================
@@ -298,8 +297,3 @@ run_model_estimation <- function(file_path) {
 invisible(run_model_estimation(
   file_path = "C:/Users/use/Desktop/NCCU_STAT/Time Series/final/data/processed/monthly_housing_train.csv"
 ))
-
-# If you want to inspect the results later, use this instead:
-# results <- run_model_estimation(
-#   file_path = "monthly_housing_train.csv"
-# )
