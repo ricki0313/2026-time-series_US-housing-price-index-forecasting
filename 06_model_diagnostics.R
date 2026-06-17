@@ -1,7 +1,4 @@
-# ============================================================
-# Function
-# ============================================================
-
+# ----- Function -----
 check_required_packages <- function(packages) {
   for (pkg in packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -202,9 +199,8 @@ get_max_abs_residual_acf <- function(fit, lag.max = 24) {
   )$acf
   
   acf_values <- acf_values[-1]
-  max_abs_acf <- max(abs(acf_values))
   
-  return(max_abs_acf)
+  max(abs(acf_values))
 }
 
 run_ljung_box_test <- function(fit, lag = 24) {
@@ -263,8 +259,7 @@ diagnose_all_models <- function(models, lag = 24, acf_lag_max = 24) {
 }
 
 select_models_by_relative_diagnostics <- function(diagnostics_table, top_n = 4) {
-  selected_models <- head(diagnostics_table$Model, top_n)
-  return(selected_models)
+  head(diagnostics_table$Model, top_n)
 }
 
 add_retention_decision <- function(diagnostics_table, selected_model_names) {
@@ -277,12 +272,16 @@ add_retention_decision <- function(diagnostics_table, selected_model_names) {
   return(diagnostics_table)
 }
 
+
+# Visualization: all-model comparison plots
 plot_ljung_box_p_values <- function(diagnostics_table) {
-  old_par <- par(no.readonly = TRUE)
-  on.exit(par(old_par))
+  old_mfrow <- par("mfrow")
+  old_mar <- par("mar")
+  on.exit(par(mfrow = old_mfrow, mar = old_mar))
   
   ordered_table <- diagnostics_table[order(diagnostics_table$Ljung_Box_p_value), ]
   
+  par(mfrow = c(1, 1))
   par(mar = c(5, 16, 4, 2))
   
   barplot(
@@ -297,12 +296,34 @@ plot_ljung_box_p_values <- function(diagnostics_table) {
   abline(v = 0.05, lty = 2)
 }
 
+plot_ljung_box_statistics <- function(diagnostics_table) {
+  old_mfrow <- par("mfrow")
+  old_mar <- par("mar")
+  on.exit(par(mfrow = old_mfrow, mar = old_mar))
+  
+  ordered_table <- diagnostics_table[order(diagnostics_table$Ljung_Box_Statistic), ]
+  
+  par(mfrow = c(1, 1))
+  par(mar = c(5, 16, 4, 2))
+  
+  barplot(
+    ordered_table$Ljung_Box_Statistic,
+    names.arg = ordered_table$Model,
+    horiz = TRUE,
+    las = 1,
+    xlab = "Ljung-Box statistic",
+    main = "Residual Diagnostics: Ljung-Box Statistics"
+  )
+}
+
 plot_max_abs_residual_acf <- function(diagnostics_table) {
-  old_par <- par(no.readonly = TRUE)
-  on.exit(par(old_par))
+  old_mfrow <- par("mfrow")
+  old_mar <- par("mar")
+  on.exit(par(mfrow = old_mfrow, mar = old_mar))
   
   ordered_table <- diagnostics_table[order(diagnostics_table$Max_Abs_ACF_Lag_1_to_24), ]
   
+  par(mfrow = c(1, 1))
   par(mar = c(5, 16, 4, 2))
   
   barplot(
@@ -315,6 +336,7 @@ plot_max_abs_residual_acf <- function(diagnostics_table) {
   )
 }
 
+# Visualization: individual residual diagnostics
 plot_residual_time_series <- function(fit, model_name) {
   residuals <- get_clean_residuals(fit)
   
@@ -362,10 +384,12 @@ plot_residual_qq <- function(fit, model_name) {
 }
 
 plot_full_residual_diagnostics <- function(fit, model_name) {
-  old_par <- par(no.readonly = TRUE)
-  on.exit(par(old_par))
+  old_mfrow <- par("mfrow")
+  old_mar <- par("mar")
+  on.exit(par(mfrow = old_mfrow, mar = old_mar))
   
   par(mfrow = c(2, 2))
+  par(mar = c(4, 4, 3, 1))
   
   plot_residual_time_series(fit, model_name)
   plot_residual_acf(fit, model_name)
@@ -373,8 +397,8 @@ plot_full_residual_diagnostics <- function(fit, model_name) {
   plot_residual_qq(fit, model_name)
 }
 
-plot_retained_model_diagnostics <- function(models, selected_model_names) {
-  for (model_name in selected_model_names) {
+plot_all_model_diagnostics <- function(models) {
+  for (model_name in names(models)) {
     cat("\nPlotting residual diagnostics for:", model_name, "\n")
     
     plot_full_residual_diagnostics(
@@ -382,10 +406,11 @@ plot_retained_model_diagnostics <- function(models, selected_model_names) {
       model_name = model_name
     )
     
-    readline(prompt = "Press [Enter] to continue to the next retained model...")
+    readline(prompt = "Press [Enter] to continue to the next model...")
   }
 }
 
+# Main diagnostics runner
 run_model_diagnostics <- function(results, top_n = 4, lag = 24) {
   models <- results$models
   
@@ -411,16 +436,20 @@ run_model_diagnostics <- function(results, top_n = 4, lag = 24) {
   cat("\n================ Models Retained for Forecasting ================\n")
   print(selected_model_names)
   
+  cat("\nAll models are ranked by smaller Ljung-Box statistic first, then smaller maximum absolute residual ACF.\n")
+  
+  # Visualize all-model comparison before selecting models.
   plot_ljung_box_p_values(diagnostics_table)
-  readline(prompt = "Press [Enter] to continue to the Max ACF plot...")
+  readline(prompt = "Press [Enter] to continue to Ljung-Box statistic plot...")
+  
+  plot_ljung_box_statistics(diagnostics_table)
+  readline(prompt = "Press [Enter] to continue to Max ACF plot...")
   
   plot_max_abs_residual_acf(diagnostics_table)
-  readline(prompt = "Press [Enter] to continue to retained model diagnostics...")
+  readline(prompt = "Press [Enter] to continue to individual residual diagnostics for all models...")
   
-  plot_retained_model_diagnostics(
-    models = models,
-    selected_model_names = selected_model_names
-  )
+  # Visualize every candidate model.
+  plot_all_model_diagnostics(models)
   
   list(
     diagnostics_table = diagnostics_table,
@@ -428,11 +457,8 @@ run_model_diagnostics <- function(results, top_n = 4, lag = 24) {
   )
 }
 
-
-# ============================================================
-# Main
-# ============================================================
-
+# ----- Main -----
+set.seed(123)
 results <- run_model_estimation(
   file_path = "C:/Users/use/Desktop/NCCU_STAT/Time Series/final/data/processed/monthly_housing_train.csv"
 )
